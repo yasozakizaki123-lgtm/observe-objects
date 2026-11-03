@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity 4B: Describe Me! - Science Game</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        h1, h2, h3, .font-fun, button, .nav-btn {
+            font-family: 'Fredoka', cursive;
+        }
+
+        .item-card {
+            cursor: grab;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease;
+            touch-action: none;
+        }
+
+        .item-card:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-card:active, .item-card.is-dragging {
+            cursor: grabbing;
+            transform: scale(1.08);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+            z-index: 50;
+        }
+
+        .drop-box {
+            transition: all 0.25s ease;
+        }
+
+        .drop-box.drag-over {
+            background-color: rgba(253, 230, 138, 0.7);
+            border-color: #f59e0b;
+            transform: scale(1.015);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .shake-anim {
+            animation: shake 0.45s ease-in-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .placed-card {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* Touch Drag Ghost Floating Indicator */
+        #touch-ghost {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.95;
+            transform: translate(-50%, -50%) scale(1.1);
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-amber-50/60 min-h-screen text-slate-800 pb-12 flex flex-col">
+
+    <!-- Header & Dashboard -->
+    <header class="bg-amber-400 border-b-4 border-amber-500 shadow-md py-3 px-4 sm:px-6 sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-inner border-2 border-amber-300">
+                    🔬
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black text-amber-950 leading-none">Activity 4B: Describe Me!</h1>
+                    <p class="text-xs font-bold text-amber-900/80 mt-0.5">Primary Science Material Properties</p>
+                </div>
+            </div>
+
+            <!-- Score & Game Controls -->
+            <div class="flex items-center gap-3 bg-white/90 backdrop-blur px-4 py-1.5 rounded-2xl border-2 border-amber-300 shadow-sm ml-auto">
+                <div class="flex items-center gap-2 pr-3 border-r-2 border-amber-200">
+                    <span class="text-xl">⭐</span>
+                    <div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Score</div>
+                        <div id="score-display" class="text-lg font-black text-amber-600 leading-none">0 pts</div>
+                    </div>
+                </div>
+
+                <!-- Sound Toggle -->
+                <button id="sound-toggle-btn" class="w-9 h-9 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-800 flex items-center justify-center transition font-bold" title="Sound Mute/Unmute">
+                    <i id="sound-icon" class="fas fa-volume-up"></i>
+                </button>
+
+                <!-- Reset Round -->
+                <button id="reset-round-btn" class="w-9 h-9 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center transition font-bold" title="Reset Current Round">
+                    <i class="fas fa-rotate-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs / Round Selection -->
+    <div class="bg-amber-100 border-b-2 border-amber-200 py-2 px-4 shadow-inner">
+        <div class="max-w-6xl mx-auto flex flex-wrap justify-center gap-2">
+            <button data-round="1" class="nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-md">
+                <span>💎 ☁️</span> Round 1: Hard vs Soft
+            </button>
+            <button data-round="2" class="nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-amber-200">
+                <span>🔍 🙈</span> Round 2: See Through
+            </button>
+            <button data-round="3" class="nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-amber-200">
+                <span>🔄 📏</span> Round 3: Bendable
+            </button>
+            <button data-round="4" class="nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-amber-200">
+                <span>🥤 🧪</span> Round 4: Water Bottle Maker
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Game Container -->
+    <main class="max-w-6xl mx-auto px-4 mt-6 flex-1 w-full flex flex-col">
+        
+        <!-- Instruction Banner -->
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-3 mb-6 shadow-sm flex items-center gap-3">
+            <div class="text-2xl text-blue-500">💡</div>
+            <p id="round-instruction" class="text-xs sm:text-sm text-blue-900 font-semibold leading-snug">
+                Drag each item from the rack below into the correct box!
+            </p>
+        </div>
+
+        <!-- Section 1, 2, 3: Sorting Rounds -->
+        <div id="sorting-section" class="flex flex-col flex-1 gap-6">
+            
+            <!-- Draggable Items Rack -->
+            <section class="bg-white rounded-3xl p-4 border-2 border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h2 class="text-sm font-bold text-slate-600 flex items-center gap-2">
+                        <span>📦</span> Items to Sort (Drag them into the right box):
+                    </h2>
+                    <span id="items-left-count" class="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">9 Items Remaining</span>
+                </div>
+                
+                <div id="items-rack" class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2.5 min-h-[90px]">
+                    <!-- Items A-I inserted dynamically -->
+                </div>
+            </section>
+
+            <!-- Drop Zones (Left vs Right Category Boxes) -->
+            <section class="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+                
+                <!-- Left Drop Zone -->
+                <div id="drop-zone-left" class="drop-box bg-sky-50/70 border-3 border-dashed border-sky-300 rounded-3xl p-4 flex flex-col min-h-[260px] shadow-sm" data-category="">
+                    <div class="flex items-center justify-between border-b-2 border-sky-200 pb-3 mb-3">
+                        <h3 id="left-box-title" class="font-black text-sky-900 text-base sm:text-lg flex items-center gap-2">
+                            Category 1
+                        </h3>
+                        <span id="left-box-counter" class="text-xs font-bold text-sky-700 bg-sky-200/70 px-2.5 py-1 rounded-full">0 placed</span>
+                    </div>
+                    <div id="left-placed-container" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 content-start flex-1"></div>
+                </div>
+
+                <!-- Right Drop Zone -->
+                <div id="drop-zone-right" class="drop-box bg-indigo-50/70 border-3 border-dashed border-indigo-300 rounded-3xl p-4 flex flex-col min-h-[260px] shadow-sm" data-category="">
+                    <div class="flex items-center justify-between border-b-2 border-indigo-200 pb-3 mb-3">
+                        <h3 id="right-box-title" class="font-black text-indigo-900 text-base sm:text-lg flex items-center gap-2">
+                            Category 2
+                        </h3>
+                        <span id="right-box-counter" class="text-xs font-bold text-indigo-700 bg-indigo-200/70 px-2.5 py-1 rounded-full">0 placed</span>
+                    </div>
+                    <div id="right-placed-container" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 content-start flex-1"></div>
+                </div>
+
+            </section>
+        </div>
+
+        <!-- Section 4: Water Bottle Maker (Question 2) -->
+        <div id="bottle-section" class="hidden bg-white border-2 border-amber-300 rounded-3xl p-6 shadow-sm">
+            <h2 class="text-2xl font-black text-amber-900 mb-2 flex items-center gap-2">
+                <span>🥤</span> Question 2: Imagine you are a water bottle maker!
+            </h2>
+            <p class="text-slate-600 text-sm mb-6 font-semibold">
+                What material would you use to make a water bottle? Use what you have learned to decide and select two key properties of that material.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                
+                <!-- Material Choice -->
+                <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200">
+                    <label class="block text-sm font-bold text-amber-950 mb-3">Step 1: Choose Your Material</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400 font-bold text-sm">
+                            <input type="radio" name="bottle-mat" value="H" class="accent-amber-500 w-4 h-4">
+                            <span>🥄 Plastic (Plastic Spoon)</span>
+                        </label>
+                        <label class="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400 font-bold text-sm">
+                            <input type="radio" name="bottle-mat" value="C" class="accent-amber-500 w-4 h-4">
+                            <span>🪟 Glass (Glass Window)</span>
+                        </label>
+                        <label class="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400 font-bold text-sm">
+                            <input type="radio" name="bottle-mat" value="A" class="accent-amber-500 w-4 h-4">
+                            <span>☁️ Cotton (Cotton Ball)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Properties Choice -->
+                <div class="bg-amber-50/60 p-4 rounded-2xl border border-amber-200">
+                    <label class="block text-sm font-bold text-amber-950 mb-3">Step 2: Select TWO Properties of your material</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm font-bold">
+                        <label class="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400">
+                            <input type="checkbox" class="bottle-prop" value="hard"> Hard
+                        </label>
+                        <label class="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400">
+                            <input type="checkbox" class="bottle-prop" value="soft"> Soft
+                        </label>
+                        <label class="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400">
+                            <input type="checkbox" class="bottle-prop" value="cannotSeeThrough"> Cannot see through
+                        </label>
+                        <label class="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 cursor-pointer hover:border-amber-400">
+                            <input type="checkbox" class="bottle-prop" value="cannotBend"> Cannot bend
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+
+            <button id="check-bottle-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-black py-3 px-8 rounded-2xl shadow-md transition flex items-center gap-2 text-base">
+                <span>Check Water Bottle Choice ✨</span>
+            </button>
+            <div id="bottle-feedback" class="mt-4 font-bold text-sm p-4 rounded-2xl hidden"></div>
+        </div>
+
+    </main>
+
+    <!-- Floating Ghost for Touch Devices -->
+    <div id="touch-ghost" class="bg-white rounded-2xl p-2.5 border-2 border-amber-400 shadow-2xl flex flex-col items-center gap-1 w-24">
+        <span id="ghost-icon" class="text-3xl"></span>
+        <span id="ghost-label" class="text-xs font-bold text-slate-700 text-center"></span>
+    </div>
+
+    <!-- Round Completion Celebration Modal -->
+    <div id="completion-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div id="modal-card" class="bg-white border-4 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center shadow-2xl transform scale-95 transition-transform duration-300">
+            <div class="text-6xl mb-2">🎉🏆🎉</div>
+            <h2 class="text-2xl sm:text-3xl font-black text-amber-600 mb-2">Round Completed!</h2>
+            <p id="modal-desc" class="text-slate-600 font-semibold mb-6 text-sm">
+                You correctly categorized all the materials for this round!
+            </p>
+
+            <div class="flex justify-center gap-3">
+                <button id="next-round-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-sm px-6 py-3 rounded-2xl shadow-lg transition">
+                    Next Round ➡️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Logic Scripts -->
+    <script>
+        // -------------------------------------------------------------
+        // Data Definitions (Worksheet Activity 4B)
+        // -------------------------------------------------------------
+        const allObjects = [
+            { id: 'A', name: 'cotton ball', icon: '☁️', color: 'bg-amber-50 border-amber-200' },
+            { id: 'B', name: 'curtain', icon: '🎨', color: 'bg-rose-50 border-rose-200' },
+            { id: 'C', name: 'glass window', icon: '🪟', color: 'bg-cyan-50 border-cyan-200' },
+            { id: 'D', name: 'marble statue', icon: '🗿', color: 'bg-stone-100 border-stone-300' },
+            { id: 'E', name: 'milk carton', icon: '🥛', color: 'bg-blue-50 border-blue-200' },
+            { id: 'F', name: 'newspaper', icon: '📰', color: 'bg-yellow-50 border-yellow-200' },
+            { id: 'G', name: 'pebble', icon: '🪨', color: 'bg-slate-100 border-slate-300' },
+            { id: 'H', name: 'plastic spoon', icon: '🥄', color: 'bg-orange-50 border-orange-200' },
+            { id: 'I', name: 'wooden chopstick', icon: '🥢', color: 'bg-amber-100 border-amber-300' }
+        ];
+
+        // Answers Key according to worksheet:
+        // Round 1: Hard: C, D, G, H, I  | Soft: A, B, E, F
+        // Round 2: See through: C, H  | Cannot see through: A, B, D, E, F, G, I
+        // Round 3: Can bend: A, B, E, F | Cannot bend: C, D, G, H, I
+        const roundConfigs = {
+            1: {
+                title: 'Round 1: Hard vs Soft',
+                instruction: 'Drag each object into "These materials are hard" or "These materials are soft".',
+                left: { id: 'hard', title: 'These materials are hard.', icon: '💎', valid: ['C', 'D', 'G', 'H', 'I'], bg: 'bg-sky-50/70', border: 'border-sky-300' },
+                right: { id: 'soft', title: 'These materials are soft.', icon: '☁️', valid: ['A', 'B', 'E', 'F'], bg: 'bg-rose-50/70', border: 'border-rose-300' }
+            },
+            2: {
+                title: 'Round 2: See Through',
+                instruction: 'Drag each object into "We can see through..." or "We cannot see through...".',
+                left: { id: 'seeThrough', title: 'We can see through these materials.', icon: '🔍', valid: ['C', 'H'], bg: 'bg-emerald-50/70', border: 'border-emerald-300' },
+                right: { id: 'cannotSeeThrough', title: 'We cannot see through these materials.', icon: '🙈', valid: ['A', 'B', 'D', 'E', 'F', 'G', 'I'], bg: 'bg-purple-50/70', border: 'border-purple-300' }
+            },
+            3: {
+                title: 'Round 3: Bendable',
+                instruction: 'Drag each object into "We can bend..." or "We cannot bend...".',
+                left: { id: 'canBend', title: 'We can bend these materials.', icon: '🔄', valid: ['A', 'B', 'E', 'F'], bg: 'bg-amber-50/70', border: 'border-amber-300' },
+                right: { id: 'cannotBend', title: 'We cannot bend these materials.', icon: '📏', valid: ['C', 'D', 'G', 'H', 'I'], bg: 'bg-teal-50/70', border: 'border-teal-300' }
+            }
+        };
+
+        // Current Game State
+        let currentRound = 1;
+        let totalScore = 0;
+        let soundEnabled = true;
+
+        // Tracking placed objects for current round: { left: Set(), right: Set() }
+        let roundState = { left: new Set(), right: new Set() };
+
+        // -------------------------------------------------------------
+        // Web Audio API Synthesized Sound Generator
+        // -------------------------------------------------------------
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                if (type === 'drag') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(450, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'correct') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'error') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(110, now + 0.2);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.22);
+                } else if (type === 'win') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + idx * 0.08);
+                        osc.stop(now + idx * 0.08 + 0.35);
+                    });
+                }
+            } catch (e) {
+                console.log('Audio playback ignored or prohibited by browser');
+            }
+        }
+
+        // -------------------------------------------------------------
+        // UI Initialization & Loading
+        // -------------------------------------------------------------
+        const itemsRack = document.getElementById('items-rack');
+        const dropLeft = document.getElementById('drop-zone-left');
+        const dropRight = document.getElementById('drop-zone-right');
+        const leftContainer = document.getElementById('left-placed-container');
+        const rightContainer = document.getElementById('right-placed-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const instructionText = document.getElementById('round-instruction');
+        const itemsLeftCount = document.getElementById('items-left-count');
+
+        function loadRound(roundNum) {
+            currentRound = roundNum;
+            roundState = { left: new Set(), right: new Set() };
+
+            // Update Tab UI
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const r = parseInt(btn.getAttribute('data-round'));
+                if (r === roundNum) {
+                    btn.className = 'nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-amber-500 text-white shadow-md';
+                } else {
+                    btn.className = 'nav-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition flex items-center gap-1.5 bg-white text-slate-700 hover:bg-amber-200';
+                }
+            });
+
+            // Toggle Section visibility
+            const sortingSection = document.getElementById('sorting-section');
+            const bottleSection = document.getElementById('bottle-section');
+
+            if (roundNum === 4) {
+                sortingSection.classList.add('hidden');
+                bottleSection.classList.remove('hidden');
+                instructionText.textContent = 'Question 2: Water Bottle Maker. Select a suitable material and two properties!';
+                return;
+            } else {
+                sortingSection.classList.remove('hidden');
+                bottleSection.classList.add('hidden');
+            }
+
+            // Configure round containers
+            const config = roundConfigs[roundNum];
+            instructionText.textContent = config.instruction;
+
+            // Set Left Box
+            document.getElementById('left-box-title').innerHTML = `<span>${config.left.icon}</span> ${config.left.title}`;
+            dropLeft.setAttribute('data-side', 'left');
+
+            // Set Right Box
+            document.getElementById('right-box-title').innerHTML = `<span>${config.right.icon}</span> ${config.right.title}`;
+            dropRight.setAttribute('data-side', 'right');
+
+            leftContainer.innerHTML = '';
+            rightContainer.innerHTML = '';
+
+            renderRack();
+            updateCounters();
+        }
+
+        function renderRack() {
+            itemsRack.innerHTML = '';
+            
+            // Find items not yet placed in either container for this round
+            const remainingItems = allObjects.filter(obj => !roundState.left.has(obj.id) && !roundState.right.has(obj.id));
+
+            remainingItems.forEach(obj => {
+                const card = document.createElement('div');
+                card.className = `item-card ${obj.color} border-2 rounded-2xl p-2 sm:p-2.5 flex flex-col items-center justify-center text-center shadow-sm select-none relative`;
+                card.setAttribute('draggable', 'true');
+                card.setAttribute('data-id', obj.id);
+
+                card.innerHTML = `
+                    <div class="text-[10px] font-black text-amber-900 bg-amber-200/80 px-1.5 py-0.5 rounded-full mb-1 flex items-center justify-center">${obj.id}</div>
+                    <div class="text-2xl sm:text-3xl mb-1">${obj.icon}</div>
+                    <div class="text-[11px] font-bold text-slate-700 leading-tight truncate w-full">${obj.name}</div>
+                `;
+
+                // Add drag handlers
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+
+                // Touch Drag Handlers
+                card.addEventListener('touchstart', handleTouchStart, { passive: false });
+                card.addEventListener('touchmove', handleTouchMove, { passive: false });
+                card.addEventListener('touchend', handleTouchEnd);
+
+                itemsRack.appendChild(card);
+            });
+
+            itemsLeftCount.textContent = `${remainingItems.length} Items Remaining`;
+        }
+
+        // -------------------------------------------------------------
+        // Drag & Drop Handlers (Desktop Mouse)
+        // -------------------------------------------------------------
+        let draggedId = null;
+
+        function handleDragStart(e) {
+            draggedId = this.getAttribute('data-id');
+            e.dataTransfer.setData('text/plain', draggedId);
+            this.classList.add('is-dragging');
+            playSound('drag');
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('is-dragging');
+        }
+
+        [dropLeft, dropRight].forEach(dropBox => {
+            dropBox.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropBox.classList.add('drag-over');
+            });
+
+            dropBox.addEventListener('dragleave', () => {
+                dropBox.classList.remove('drag-over');
+            });
+
+            dropBox.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropBox.classList.remove('drag-over');
+                const side = dropBox.getAttribute('data-side');
+                const id = e.dataTransfer.getData('text/plain') || draggedId;
+                if (id) {
+                    attemptPlacement(id, side, dropBox);
+                }
+            });
+        });
+
+        // -------------------------------------------------------------
+        // Touch Drag Handlers (Mobile / Touch Devices)
+        // -------------------------------------------------------------
+        const touchGhost = document.getElementById('touch-ghost');
+        const ghostIcon = document.getElementById('ghost-icon');
+        const ghostLabel = document.getElementById('ghost-label');
+        let activeTouchId = null;
+
+        function handleTouchStart(e) {
+            if (e.touches.length > 1) return;
+            getAudioContext();
+
+            activeTouchId = this.getAttribute('data-id');
+            const obj = allObjects.find(o => o.id === activeTouchId);
+
+            ghostIcon.textContent = obj.icon;
+            ghostLabel.textContent = obj.name;
+
+            const touch = e.touches[0];
+            touchGhost.style.left = `${touch.clientX}px`;
+            touchGhost.style.top = `${touch.clientY}px`;
+            touchGhost.style.display = 'flex';
+
+            this.classList.add('is-dragging');
+            playSound('drag');
+        }
+
+        function handleTouchMove(e) {
+            if (!activeTouchId) return;
+            e.preventDefault();
+
+            const touch = e.touches[0];
+            touchGhost.style.left = `${touch.clientX}px`;
+            touchGhost.style.top = `${touch.clientY}px`;
+
+            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropBox = targetElement ? targetElement.closest('.drop-box') : null;
+
+            [dropLeft, dropRight].forEach(b => b.classList.remove('drag-over'));
+            if (dropBox) {
+                dropBox.classList.add('drag-over');
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!activeTouchId) return;
+
+            touchGhost.style.display = 'none';
+            document.querySelectorAll('.item-card').forEach(c => c.classList.remove('is-dragging'));
+
+            const touch = e.changedTouches[0];
+            const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropBox = targetElement ? targetElement.closest('.drop-box') : null;
+
+            [dropLeft, dropRight].forEach(b => b.classList.remove('drag-over'));
+
+            if (dropBox) {
+                const side = dropBox.getAttribute('data-side');
+                attemptPlacement(activeTouchId, side, dropBox);
+            }
+
+            activeTouchId = null;
+        }
+
+        // -------------------------------------------------------------
+        // Placement Validation Logic
+        // -------------------------------------------------------------
+        function attemptPlacement(objectId, side, dropBoxElement) {
+            const config = roundConfigs[currentRound];
+            const validList = config[side].valid;
+            const isCorrect = validList.includes(objectId);
+
+            if (isCorrect) {
+                // Correct Drop!
+                roundState[side].add(objectId);
+                totalScore += 10;
+                scoreDisplay.textContent = `${totalScore} pts`;
+                playSound('correct');
+
+                // Render placed item in target side container
+                const container = side === 'left' ? leftContainer : rightContainer;
+                const obj = allObjects.find(o => o.id === objectId);
+
+                const badge = document.createElement('div');
+                badge.className = 'placed-card bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-between gap-1 shadow-sm';
+                badge.innerHTML = `
+                    <div class="flex items-center gap-1.5 truncate">
+                        <span class="text-[10px] font-black text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded-full">${obj.id}</span>
+                        <span class="text-base">${obj.icon}</span>
+                        <span class="text-xs font-bold text-slate-700 truncate">${obj.name}</span>
+                    </div>
+                    <button class="remove-btn text-slate-400 hover:text-rose-500 font-bold text-xs p-1" title="Move back to rack">✕</button>
+                `;
+
+                // Allow Re-Dragging / Moving item back out of the box
+                badge.querySelector('.remove-btn').addEventListener('click', () => {
+                    roundState[side].delete(objectId);
+                    badge.remove();
+                    renderRack();
+                    updateCounters();
+                });
+
+                container.appendChild(badge);
+                renderRack();
+                updateCounters();
+                checkRoundWin();
+
+            } else {
+                // Incorrect Drop - Shake animation & error sound
+                playSound('error');
+                dropBoxElement.classList.add('shake-anim');
+                setTimeout(() => {
+                    dropBoxElement.classList.remove('shake-anim');
+                }, 450);
+            }
+        }
+
+        function updateCounters() {
+            if (currentRound === 4) return;
+            const config = roundConfigs[currentRound];
+            
+            document.getElementById('left-box-counter').textContent = `${roundState.left.size} / ${config.left.valid.length}`;
+            document.getElementById('right-box-counter').textContent = `${roundState.right.size} / ${config.right.valid.length}`;
+        }
+
+        function checkRoundWin() {
+            const config = roundConfigs[currentRound];
+            const leftWin = roundState.left.size === config.left.valid.length;
+            const rightWin = roundState.right.size === config.right.valid.length;
+
+            if (leftWin && rightWin) {
+                setTimeout(() => {
+                    playSound('win');
+                    if (typeof confetti === 'function') {
+                        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                    }
+
+                    const modal = document.getElementById('completion-modal');
+                    const card = document.getElementById('modal-card');
+                    modal.classList.remove('opacity-0', 'pointer-events-none');
+                    card.classList.remove('scale-95');
+                    card.classList.add('scale-100');
+                }, 300);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // Water Bottle Maker Validation (Round 4)
+        // -------------------------------------------------------------
+        const checkBottleBtn = document.getElementById('check-bottle-btn');
+        const bottleFeedback = document.getElementById('bottle-feedback');
+
+        checkBottleBtn.addEventListener('click', () => {
+            getAudioContext();
+            const selectedMat = document.querySelector('input[name="bottle-mat"]:checked');
+            const selectedProps = Array.from(document.querySelectorAll('.bottle-prop:checked')).map(el => el.value);
+
+            bottleFeedback.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-900', 'bg-rose-100', 'text-rose-900');
+
+            if (!selectedMat) {
+                bottleFeedback.textContent = 'Please pick a material (Plastic or Glass)!';
+                bottleFeedback.classList.add('bg-rose-100', 'text-rose-900');
+                playSound('error');
+                return;
+            }
+
+            if (selectedProps.length !== 2) {
+                bottleFeedback.textContent = 'Please choose exactly TWO properties for your water bottle!';
+                bottleFeedback.classList.add('bg-rose-100', 'text-rose-900');
+                playSound('error');
+                return;
+            }
+
+            const matValue = selectedMat.value;
+
+            if (matValue === 'H' || matValue === 'C') {
+                // Plastic (H) or Glass (C)
+                if (selectedProps.includes('soft')) {
+                    bottleFeedback.textContent = 'Careful! Plastic and glass are hard materials, not soft!';
+                    bottleFeedback.classList.add('bg-rose-100', 'text-rose-900');
+                    playSound('error');
+                } else {
+                    bottleFeedback.textContent = 'Excellent science work! Plastic and glass are hard, waterproof, and cannot bend easily, making them perfect for water bottles!';
+                    bottleFeedback.classList.add('bg-emerald-100', 'text-emerald-900');
+                    playSound('win');
+                    totalScore += 20;
+                    scoreDisplay.textContent = `${totalScore} pts`;
+                    if (typeof confetti === 'function') {
+                        confetti({ particleCount: 90, spread: 60, origin: { y: 0.6 } });
+                    }
+                }
+            } else {
+                bottleFeedback.textContent = 'Cotton balls absorb water and are very soft! They would make a terrible water bottle!';
+                bottleFeedback.classList.add('bg-rose-100', 'text-rose-900');
+                playSound('error');
+            }
+        });
+
+        // -------------------------------------------------------------
+        // Global Navigation & Control Handlers
+        // -------------------------------------------------------------
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const r = parseInt(btn.getAttribute('data-round'));
+                loadRound(r);
+            });
+        });
+
+        document.getElementById('next-round-btn').addEventListener('click', () => {
+            document.getElementById('completion-modal').classList.add('opacity-0', 'pointer-events-none');
+            const nextR = currentRound < 4 ? currentRound + 1 : 1;
+            loadRound(nextR);
+        });
+
+        document.getElementById('reset-round-btn').addEventListener('click', () => {
+            loadRound(currentRound);
+        });
+
+        const soundBtn = document.getElementById('sound-toggle-btn');
+        const soundIcon = document.getElementById('sound-icon');
+        soundBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundIcon.className = 'fas fa-volume-up';
+                soundBtn.classList.replace('bg-slate-200', 'bg-amber-100');
+            } else {
+                soundIcon.className = 'fas fa-volume-mute';
+                soundBtn.classList.replace('bg-amber-100', 'bg-slate-200');
+            }
+        });
+
+        // Initialize Round 1 on load
+        window.onload = () => loadRound(1);
+    </script>
+</body>
+</html>
